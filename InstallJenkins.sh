@@ -9,8 +9,15 @@ echo "Looking very good, very nice."
 lts_version() {
     echo "Fetching latest Jenkins LTS version..."
     # Fetch the latest stable LTS version from Jenkins API
-    LTS_VERSION=$(curl -s https://updates.jenkins.io/stable/latest/ | jq -r '.version')
+    API_RESPONSE=$(curl -s https://updates.jenkins.io/stable/latest/)
+    
+    # Debugging: Print raw API response
+    echo "API Response: $API_RESPONSE"
 
+    # Check if the API response is a valid JSON object and extract the version
+    LTS_VERSION=$(echo "$API_RESPONSE" | jq -r '.version')
+
+    # If the version is null or empty, exit with an error message
     if [ "$LTS_VERSION" == "null" ] || [ -z "$LTS_VERSION" ]; then
         echo "Error fetching LTS version or LTS version is null. Exiting."
         exit 1
