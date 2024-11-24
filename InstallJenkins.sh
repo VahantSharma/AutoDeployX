@@ -1,192 +1,179 @@
 #!/bin/bash
 
-set -e  # Exit immediately if a command exits with a non-zero status
+set -e
 
 echo "Good Morning, Pineapple."
 echo "Looking very good, very nice."
 
-# Function to fetch Jenkins versions
-version_fetcher() {
-    echo "Fetching Jenkins versions initiated..."
-    LTS_VERSION=$(curl -s https://www.jenkins.io/ | grep -oP '(?<=Latest LTS: )[\d\.]+') || { echo "Error fetching LTS version"; exit 1; }
-    PREVIOUS_VERSION=$(curl -s https://updates.jenkins.io/ | grep -oP '\d+\.\d+\.\d+' | sort -Vr | grep -B1 "$LTS_VERSION" | head -n1) || { echo "Error fetching previous version"; exit 1; }
+# Fetch latest Jenkins LTS version using the Jenkins API
+lts_version() {
+    echo "Fetching latest Jenkins LTS version..."
+    # Fetch the latest stable LTS version from Jenkins API
+    LTS_VERSION=$(curl -s https://updates.jenkins.io/stable/latest/ | jq -r '.version') || { echo "Error fetching LTS version"; exit 1; }
 
-    echo "Latest LTS Version: $LTS_VERSION"
-    echo "Previous Version: $PREVIOUS_VERSION"
+    if [ "$LTS_VERSION" == "null" ]; then
+        echo "Failed to fetch Jenkins LTS version. Exiting."
+        exit 1
+    fi
+
+    echo "Latest Jenkins LTS Version: $LTS_VERSION"
 }
 
-# Function to prompt user for version selection
-version_selector() {
-    echo -e "\nWhich Jenkins version do you want to install?"
-    echo "1) Latest LTS Version ($LTS_VERSION)"
-    echo "2) Previous Version ($PREVIOUS_VERSION)"
-    echo "3) Enter a custom version"
-
-    read -p "Enter your choice [1/2/3]: " choice
-
-    case "$choice" in
-        1) JENKINS_VERSION="$LTS_VERSION" ;;
-        2) JENKINS_VERSION="$PREVIOUS_VERSION" ;;
-        3)
-            read -p "Enter the Jenkins version you want to install (e.g., 2.46.2): " custom_version
-            JENKINS_VERSION="$custom_version"
+# function that installs for different os
+install_jenkins() {
+    echo "Starting Jenkins installation based on your OS..."
+    case "$OS" in
+        Linux)
+            install_linux
+            ;;
+        Mac)
+            install_mac
+            ;;
+        Windows)
+            install_windows
             ;;
         *)
-            echo "Invalid choice. Exiting..."
+            echo "Unsupported OS detected: $OS. Exiting..."
             exit 1
             ;;
     esac
 }
 
-# Function to detect operating system
+# jenkins installation for various distros installation 
+install_linux() {
+    echo "Detected Linux. Installing Jenkins..."
+
+    # Ensure Java is installed before proceeding
+    install_java
+
+    # package manager detector
+    if command -v apt >/dev/null 2>&1; then
+        install_debian_based
+    elif command -v yum >/dev/null 2>&1; then
+        install_rhel_based
+    elif command -v pacman >/dev/null 2>&1; then
+        install_arch
+    else
+        echo "No supported package manager detected. Please install manually."
+        exit 1
+    fi
+}
+
+# Debian-based installation
+install_debian_based() {
+    echo "Installing Jenkins on Debian/Ubuntu..."
+    sudo apt-get update
+    curl -fsSL https://pkg.jenkins.io/debian/jenkins.io.key | sudo tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
+    echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian/ stable main" | sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
+    sudo apt-get update
+    sudo apt-get install -y jenkins="$LTS_VERSION"
+    sudo systemctl start jenkins
+    sudo systemctl enable jenkins
+    echo "Jenkins installed successfully! Access it at http://localhost:8080"
+}
+
+# RHEL/CentOS/Fedora-based installation
+install_rhel_based() {
+    echo "Installing Jenkins on RHEL/CentOS/Fedora..."
+    sudo yum install -y java-17-openjdk-devel
+    curl -fsSL https://pkg.jenkins.io/redhat/jenkins.io.key | sudo tee /etc/yum.repos.d/jenkins.repo
+    sudo yum install -y jenkins-"$LTS_VERSION"
+    sudo systemctl start jenkins
+    sudo systemctl enable jenkins
+    echo "Jenkins installed successfully! Access it at http://localhost:8080"
+}
+
+# Arch Linux installation
+install_arch() {
+    echo "Installing Jenkins on Arch Linux..."
+    sudo pacman -Syu --noconfirm openjdk17
+    sudo pacman -S --noconfirm jenkins
+    sudo systemctl start jenkins
+    sudo systemctl enable jenkins
+    echo "Jenkins installed successfully! Access it at http://localhost:8080"
+}
+
+# macOS installation
+install_mac() {
+    echo "Detected macOS. Installing Jenkins..."
+
+    # Ensure Java is installed before proceeding
+    install_java
+
+    # Install Jenkins using Homebrew
+    if ! command -v brew >/dev/null 2>&1; then
+        echo "Homebrew is not installed. Please install Homebrew first."
+        exit 1
+    fi
+    brew update
+    brew tap jenkinsci/jenkins
+    brew install jenkins-lts
+    brew services start jenkins-lts
+
+    echo "Jenkins installed successfully! Access it at http://localhost:8080"
+}
+
+# Windows installation
+install_windows() {
+    echo "Detected Windows. Installing Jenkins..."
+
+    # Ensure Java is installed before proceeding
+    install_java
+
+    if ! command -v choco >/dev/null 2>&1; then
+        echo "Chocolatey is not installed. Please install Chocolatey first."
+        exit 1
+    fi
+
+    choco install jenkins --version="$LTS_VERSION" -y
+    echo "Jenkins installed successfully! You can now run Jenkins from the Start menu."
+}
+
+# Check if Java is installed, and install it if not
+install_java() {
+    echo "Checking for Java installation..."
+
+    if ! command -v java >/dev/null 2>&1; then
+        echo "Java not found. Installing Java 17..."
+        case "$OS" in
+            Linux)
+                sudo apt update && sudo apt install -y openjdk-17-jdk
+                ;;
+            Mac)
+                brew install openjdk@17
+                ;;
+            Windows)
+                echo "Please install Java manually or use Chocolatey."
+                exit 1
+                ;;
+            *)
+                echo "Unsupported OS for Java installation. Exiting..."
+                exit 1
+                ;;
+        esac
+    else
+        echo "Java is already installed."
+    fi
+}
+
+# Detect the operating system
 detect_os() {
+    echo "Detecting operating system..."
     unameOut="$(uname -s)"
     case "${unameOut}" in
         Linux*)     OS=Linux ;;
         Darwin*)    OS=Mac ;;
-        CYGWIN*|MINGW*|MSYS*|MINGW32*|MINGW64*) OS=Windows ;;
+        CYGWIN*|MINGW*|MSYS*) OS=Windows ;;
         *)          OS="UNKNOWN:${unameOut}" ;;
     esac
-    echo "$OS"
+    echo "Operating system detected: $OS"
 }
 
-# Function to install Java
-install_java() {
-    echo "Checking for Java..."
-    if command -v java >/dev/null 2>&1; then
-        echo "Java is already installed."
-    else
-        echo "Java is not installed. Installing now..."
-        case "$OS" in
-            Linux)
-                . /etc/os-release || { echo "Error: Unable to determine Linux distribution."; exit 1; }
-                case "$ID" in
-                    ubuntu|debian)
-                        echo "Installing Java on Debian-based Linux..."
-                        sudo apt update && sudo apt install -y openjdk-11-jdk
-                        ;;
-                    fedora|rhel|centos)
-                        echo "Installing Java on RHEL-based Linux..."
-                        sudo yum install -y java-11-openjdk-devel
-                        ;;
-                    *)
-                        echo "Unsupported Linux distribution: $ID. Please install Java manually."
-                        exit 1
-                        ;;
-                esac
-                ;;
-            Mac)
-                echo "Installing Java on macOS..."
-                if ! command -v brew >/dev/null 2>&1; then
-                    echo "Error: Homebrew is not installed. Please install Homebrew from https://brew.sh and re-run this script."
-                    exit 1
-                fi
-                brew install openjdk@11
-                ;;
-            Windows)
-                echo "Installing Java on Windows..."
-                if command -v choco >/dev/null 2>&1; then
-                    choco install openjdk11 -y
-                else
-                    echo "Error: Chocolatey is not installed. Please install Chocolatey from https://chocolatey.org or install Java manually."
-                    exit 1
-                fi
-                ;;
-            *)
-                echo "Unsupported OS: $OS. Please install Java manually."
-                exit 1
-                ;;
-        esac
-    fi
-}
-
-# Linux installation
-linux_installer() {
-    echo "Detected Linux. Preparing installation..."
-    install_java  # Ensure Java is installed before proceeding
-
-    . /etc/os-release || { echo "Error: Unable to determine Linux distribution."; exit 1; }
-
-    case "$ID" in
-        ubuntu|debian)
-            echo "Debian-based Linux detected."
-            sudo apt update && sudo apt install -y curl gnupg
-            curl -fsSL https://pkg.jenkins.io/debian/jenkins.io-2023.key | sudo tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
-            echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian binary/" | sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
-            sudo apt update && sudo apt install -y jenkins="$JENKINS_VERSION"
-            ;;
-        fedora|rhel|centos)
-            echo "RHEL-based Linux detected."
-            sudo yum install -y curl
-            sudo wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
-            sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
-            sudo yum install -y jenkins-"$JENKINS_VERSION"
-            ;;
-        *)
-            echo "Unsupported Linux distribution: $ID. Please install Jenkins manually."
-            exit 1
-            ;;
-    esac
-    sudo systemctl start jenkins
-    sudo systemctl enable jenkins
-    echo "Jenkins installed successfully. Access it at http://localhost:8080"
-}
-
-# macOS installation
-mac_installer() {
-    echo "Detected macOS. Preparing installation..."
-    install_java
-    if ! command -v brew >/dev/null 2>&1; then
-        echo "Error: Homebrew is not installed. Please install Homebrew from https://brew.sh and re-run this script."
-        exit 1
-    fi
-    brew tap jenkinsci/jenkins
-    brew install jenkins-lts
-    brew services start jenkins-lts
-    echo "Jenkins installed successfully. Access it at http://localhost:8080"
-}
-
-# Windows installation
-windows_installer() {
-    echo "Detected Windows. Preparing installation..."
-    install_java
-    if command -v choco >/dev/null 2>&1; then
-        choco install jenkins --version="$JENKINS_VERSION" -y
-        echo "Jenkins installed successfully. Ensure Jenkins service is running."
-    elif grep -q Microsoft /proc/version 2>/dev/null; then
-        echo "Running in WSL. Proceeding with Linux installation..."
-        linux_installer
-    else
-        echo "Error: Unsupported Windows setup. Please install Chocolatey or use WSL for Jenkins installation."
-        exit 1
-    fi
-}
-
-# Main function
+# Main function to run the process
 main() {
-    version_fetcher
-    version_selector
-
-    OS=$(detect_os)
-    echo "Detected OS: $OS"
-
-    case "$OS" in
-        Linux)
-            linux_installer
-            ;;
-        Mac)
-            mac_installer
-            ;;
-        Windows)
-            windows_installer
-            ;;
-        *)
-            echo "Unsupported OS: $OS. Exiting..."
-            exit 1
-            ;;
-    esac
-
-    echo -e "\nInstallation complete! Access Jenkins at http://localhost:8080\n"
+    lts_version  # Fetch latest LTS version
+    detect_os         # Detect the operating system
+    install_jenkins    # Install Jenkins based on the OS
 }
 
 # Run the main function
