@@ -8,13 +8,8 @@ echo "Looking very good, very nice."
 # Function to fetch Jenkins versions
 version_fetcher() {
     echo "Fetching Jenkins versions initiated..."
-    LTS_VERSION=$(curl -s https://www.jenkins.io/ | grep -oP '(?<=Latest LTS: )[\d\.]+')
-    PREVIOUS_VERSION=$(curl -s https://updates.jenkins.io/ | grep -oP '\d+\.\d+\.\d+' | sort -Vr | grep -B1 "$LTS_VERSION" | head -n1)
-
-    if [[ -z "$LTS_VERSION" || -z "$PREVIOUS_VERSION" ]]; then
-        echo "Error: Unable to fetch Jenkins versions. Please check your internet connection."
-        exit 1
-    fi
+    LTS_VERSION=$(curl -s https://www.jenkins.io/ | grep -oP '(?<=Latest LTS: )[\d\.]+') || { echo "Error fetching LTS version"; exit 1; }
+    PREVIOUS_VERSION=$(curl -s https://updates.jenkins.io/ | grep -oP '\d+\.\d+\.\d+' | sort -Vr | grep -B1 "$LTS_VERSION" | head -n1) || { echo "Error fetching previous version"; exit 1; }
 
     echo "Latest LTS Version: $LTS_VERSION"
     echo "Previous Version: $PREVIOUS_VERSION"
@@ -45,8 +40,7 @@ version_selector() {
 
 # Function to detect operating system
 detect_os() {
-    unameOut="$(uname -s)"  # uname data about OS version
-                            # -s flag for kernel name only      
+    unameOut="$(uname -s)"
     case "${unameOut}" in
         Linux*)     OS=Linux ;;
         Darwin*)    OS=Mac ;;
@@ -65,7 +59,7 @@ install_java() {
         echo "Java is not installed. Installing now..."
         case "$OS" in
             Linux)
-                . /etc/os-release 2>/dev/null || { echo "Error: Unable to determine Linux distribution."; exit 1; }
+                . /etc/os-release || { echo "Error: Unable to determine Linux distribution."; exit 1; }
                 case "$ID" in
                     ubuntu|debian)
                         echo "Installing Java on Debian-based Linux..."
@@ -111,15 +105,13 @@ linux_installer() {
     echo "Detected Linux. Preparing installation..."
     install_java  # Ensure Java is installed before proceeding
 
-    . /etc/os-release 2>/dev/null || { echo "Error: Unable to determine Linux distribution."; exit 1; }
+    . /etc/os-release || { echo "Error: Unable to determine Linux distribution."; exit 1; }
 
     case "$ID" in
         ubuntu|debian)
             echo "Debian-based Linux detected."
-            sudo apt update && sudo apt install -y curl gnupg  # Package for GPG keys
-            # fsSL -> Fail silently, suppress status, L -> follow the redirect URLs
+            sudo apt update && sudo apt install -y curl gnupg
             curl -fsSL https://pkg.jenkins.io/debian/jenkins.io-2023.key | sudo tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
-            # tee -> takes input, perform two things: output on terminal and create a file with that input
             echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian binary/" | sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
             sudo apt update && sudo apt install -y jenkins="$JENKINS_VERSION"
             ;;
@@ -143,7 +135,7 @@ linux_installer() {
 # macOS installation
 mac_installer() {
     echo "Detected macOS. Preparing installation..."
-    install_java  # Ensure Java is installed before proceeding
+    install_java
     if ! command -v brew >/dev/null 2>&1; then
         echo "Error: Homebrew is not installed. Please install Homebrew from https://brew.sh and re-run this script."
         exit 1
@@ -157,16 +149,15 @@ mac_installer() {
 # Windows installation
 windows_installer() {
     echo "Detected Windows. Preparing installation..."
-    install_java  # Ensure Java is installed before proceeding
+    install_java
     if command -v choco >/dev/null 2>&1; then
-        echo "Chocolatey found. Installing Jenkins..."
         choco install jenkins --version="$JENKINS_VERSION" -y
         echo "Jenkins installed successfully. Ensure Jenkins service is running."
     elif grep -q Microsoft /proc/version 2>/dev/null; then
         echo "Running in WSL. Proceeding with Linux installation..."
         linux_installer
     else
-        echo "Error: Unsupported Windows setup. Please install Chocolatey (https://chocolatey.org) or use WSL for Jenkins installation."
+        echo "Error: Unsupported Windows setup. Please install Chocolatey or use WSL for Jenkins installation."
         exit 1
     fi
 }
@@ -200,4 +191,3 @@ main() {
 
 # Run the main function
 main
-
