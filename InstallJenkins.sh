@@ -9,17 +9,17 @@ echo "Looking very good, very nice."
 lts_version() {
     echo "Fetching latest Jenkins LTS version..."
     # Fetch the latest stable LTS version from Jenkins API
-    LTS_VERSION=$(curl -s https://updates.jenkins.io/stable/latest/ | jq -r '.version') || { echo "Error fetching LTS version"; exit 1; }
+    LTS_VERSION=$(curl -s https://updates.jenkins.io/stable/latest/ | jq -r '.version')
 
-    if [ "$LTS_VERSION" == "null" ]; then
-        echo "Failed to fetch Jenkins LTS version. Exiting."
+    if [ "$LTS_VERSION" == "null" ] || [ -z "$LTS_VERSION" ]; then
+        echo "Error fetching LTS version or LTS version is null. Exiting."
         exit 1
     fi
 
     echo "Latest Jenkins LTS Version: $LTS_VERSION"
 }
 
-# function that installs for different os
+# Function that installs Jenkins based on the detected OS
 install_jenkins() {
     echo "Starting Jenkins installation based on your OS..."
     case "$OS" in
@@ -39,14 +39,14 @@ install_jenkins() {
     esac
 }
 
-# jenkins installation for various distros installation 
+# Jenkins installation for various Linux distributions
 install_linux() {
     echo "Detected Linux. Installing Jenkins..."
 
     # Ensure Java is installed before proceeding
     install_java
 
-    # package manager detector
+    # Package manager detection
     if command -v apt >/dev/null 2>&1; then
         install_debian_based
     elif command -v yum >/dev/null 2>&1; then
@@ -171,8 +171,8 @@ detect_os() {
 
 # Main function to run the process
 main() {
-    lts_version  # Fetch latest LTS version
     detect_os         # Detect the operating system
+    lts_version  # Fetch latest LTS version
     install_jenkins    # Install Jenkins based on the OS
 }
 
