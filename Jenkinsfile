@@ -3,23 +3,30 @@ pipeline {
     stages {
         stage('Clone Repository') {
             steps {
-                git branch: 'main', url: 'https://github.com/VahantSharma/AutoDeployX.git'
+                git branch: 'master', url: 'https://github.com/VahantSharma/AutoDeployX.git'
             }
         }
         stage('Monitor Disk Utilization') {
             steps {
                 script {
-                    sh './disk.sh'
+                    try {
+                        sh './disk.sh'
+                    } catch (Exception e) {
+                        echo "Error in 'Monitor Disk Utilization' stage: ${e.getMessage()}"
+                    }
                 }
             }
         }
         stage('Process Management') {
             steps {
                 script {
-                    sh './process.sh'
+                    try {
+                        sh './process.sh'
+                    } catch (Exception e) {
+                        echo "Error in 'Process Management' stage: ${e.getMessage()}"
+                    }
                 }
             }
         }
     }
 }
-
