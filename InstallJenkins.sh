@@ -27,8 +27,8 @@ detect_os() {
     unameOut="$(uname -s)"
     case "${unameOut}" in
         Linux*)     OS=Linux ;;
-        Darwin*)    OS=Mac ;;
-        CYGWIN*|MINGW*|MSYS*) OS=Windows ;;
+        Darwin*)    OS=Mac ;; 
+        CYGWIN*|MINGW*|MSYS*) OS=Windows ;; #posix environments jissse unix like functionality
         *)          OS="UNKNOWN:${unameOut}" ;;
     esac
     echo "Operating system detected: $OS"
@@ -147,10 +147,9 @@ install_jenkins() {
 
 # Main function to orchestrate the process
 main() {
-    detect_os        # Detect the OS
-    lts_version      # Fetch the latest LTS version
-    install_jenkins  # Install Jenkins based on the OS
-}
+    detect_os        
+    lts_version      
+    install_jenkins  
 
 # Run the main function
 main
