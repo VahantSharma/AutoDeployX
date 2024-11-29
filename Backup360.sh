@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Set the log file locations and email settings
+# Files mein previous result whether error ya success record hai
 LOG_FILE="backup_log.txt"
 ERROR_LOG_FILE="backup_error_log.txt"
 EMAIL_NOTIFICATION="samvanrocks12315@gmail.com"
 
-# Function to log messages with timestamps and log type (INFO or ERROR)
+# Function mein timestamp of error ya success record hai
 log_message() {
     local message=$1
     local log_type=$2
@@ -17,7 +17,7 @@ log_message() {
     fi
 }
 
-# Function to send an email notification using msmtp for gmail
+# Function to send email notification, I used msmtp kyunki gmail ka 2 factor auth hai usse easily handle karega
 send_email_notification() {
     local subject=$1
     local body=$2
@@ -42,7 +42,8 @@ send_email_notification() {
     rm -f "$temp_email"
 }
 
-# Function to clean up old backups (older than 7 days)
+# Function deletes 7 din se purana backup files only 
+# thanks to LinuxArticle (mtime, -exec, -name etc yeh sb seekha)
 cleanup_old_backups() {
     local backup_dir=$1
     find "$backup_dir" -type f -name "*.tar.gz" -mtime +7 -exec rm -f {} \;
