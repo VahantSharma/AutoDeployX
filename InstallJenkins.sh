@@ -5,12 +5,13 @@ set -e
 echo "Good Morning, Pineapple."
 echo "Looking very good, very nice."
 
-# Function to fetch the latest Jenkins LTS version using the Jenkins API
+# Function LTS version grep krlega
 lts_version() {
     echo "Fetching the latest Jenkins LTS version..."
     API_RESPONSE=$(curl -s https://updates.jenkins.io/current/latestCore.txt)
 
-    # Check if the API response contains a valid version
+    # Checks API version valid hai
+    # Referenced AskUbuntu -E0 flags and advance grep knowledge ke liye
     LTS_VERSION=$(echo "$API_RESPONSE" | grep -Eo '^[0-9]+\.[0-9]+\.[0-9]+')
 
     if [ -z "$LTS_VERSION" ]; then
@@ -21,10 +22,10 @@ lts_version() {
     echo "Latest Jenkins LTS Version: $LTS_VERSION"
 }
 
-# Function to detect the operating system
+# OS detector hai
 detect_os() {
     echo "Detecting operating system..."
-    unameOut="$(uname -s)"
+    unameOut="$(uname -s)"  
     case "${unameOut}" in
         Linux*)     OS=Linux ;;
         Darwin*)    OS=Mac ;; 
@@ -34,7 +35,7 @@ detect_os() {
     echo "Operating system detected: $OS"
 }
 
-# Function to install Java if not already installed
+# 
 install_java() {
     echo "Checking for Java installation..."
     if ! command -v java >/dev/null 2>&1; then
@@ -74,7 +75,7 @@ install_java() {
     fi
 }
 
-# Function to install Jenkins for Linux
+# Linux installer
 install_linux() {
     echo "Detected Linux. Installing Jenkins..."
     install_java
@@ -104,7 +105,7 @@ install_linux() {
     echo "Jenkins installed successfully! Access it at http://localhost:8080"
 }
 
-# Function to install Jenkins for macOS
+# macOS installer
 install_mac() {
     echo "Detected macOS. Installing Jenkins..."
     install_java
@@ -121,7 +122,7 @@ install_mac() {
     fi
 }
 
-# Function to install Jenkins for Windows
+# window ins
 install_windows() {
     echo "Detected Windows. Installing Jenkins..."
     install_java
@@ -135,7 +136,7 @@ install_windows() {
     fi
 }
 
-# Function to install Jenkins based on the OS
+# install jenkins based on OS
 install_jenkins() {
     case "$OS" in
         Linux) install_linux ;;
